@@ -1,0 +1,77 @@
+name: AI Daily Report to Feishu
+
+on:
+  schedule:
+    # GitHub Actions uses UTC. 00:50 UTC is 08:50 in Asia/Shanghai.
+    # The job starts early so AI generation can finish around 09:00.
+    - cron: "50 0 * * *"
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "Only send a Feishu connectivity test"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ai-daily-report-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --frozen --no-dev
+
+      - name: Validate configuration
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          AI_API_BASE: ${{ secrets.AI_API_BASE }}
+        run: uv run python -m trendradar --doctor
+
+      - name: Test Feishu notification
+        if: ${{ inputs.test_notification == true }}
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+        run: uv run python -m trendradar --test-notification
+
+      - name: Generate and push AI daily report
+        if: ${{ inputs.test_notification != true }}
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          AI_API_BASE: ${{ secrets.AI_API_BASE }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_ACTIONS: "true"
+        run: uv run python -m trendradar
+
+      - name: Upload report for troubleshooting
+        if: ${{ always() && inputs.test_notification != true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-daily-report-${{ github.run_id }}
+          path: |
+            output/html/
+            output/meta/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,7 @@
+.env
+.venv/
+output/
+logs/
+__pycache__/
+*.pyc
+index.html
