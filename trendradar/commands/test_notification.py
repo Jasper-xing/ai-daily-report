@@ -1,5 +1,5 @@
 # coding=utf-8
-"""閫氱煡娴嬭瘯鍛戒护"""
+"""通知测试命令"""
 
 import copy
 from pathlib import Path
@@ -11,12 +11,12 @@ from trendradar.context import AppContext
 def _build_test_report_data(ctx: AppContext) -> Dict:
     now = ctx.get_time()
     time_display = now.strftime("%H:%M")
-    title = f"AI 绉戞妧鏃ユ姤閫氱煡娴嬭瘯娑堟伅锛坽now.strftime('%Y-%m-%d %H:%M:%S')}锛?
+    title = f"AI Daily Report 通知测试消息（{now.strftime('%Y-%m-%d %H:%M:%S')}）"
 
     return {
         "stats": [
             {
-                "word": "AI 绉戞妧鏃ユ姤杩為€氭€ф祴璇?,
+                "word": "连通性测试",
                 "count": 1,
                 "titles": [
                     {
@@ -29,7 +29,7 @@ def _build_test_report_data(ctx: AppContext) -> Dict:
                         "count": 1,
                         "is_new": True,
                         "time_display": time_display,
-                        "matched_keyword": "AI 绉戞妧鏃ユ姤杩為€氭€ф祴璇?,
+                        "matched_keyword": "连通性测试",
                     }
                 ],
             }
@@ -48,22 +48,22 @@ def _create_test_html_file(ctx: AppContext) -> Optional[str]:
         html_path = output_dir / f"notification_test_{ctx.format_time()}.html"
         html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>TrendRadar 閫氱煡娴嬭瘯</title></head>
+<head><meta charset="UTF-8"><title>TrendRadar 通知测试</title></head>
 <body>
-<h2>TrendRadar 閫氱煡杩為€氭€ф祴璇?/h2>
-<p>娴嬭瘯鏃堕棿锛歿now.strftime('%Y-%m-%d %H:%M:%S')} ({ctx.timezone})</p>
-<p>杩欐槸涓€鏉℃祴璇曟秷鎭紝鐢ㄤ簬楠岃瘉閭欢娓犻亾鏄惁鍙揪銆?/p>
+<h2>TrendRadar 通知连通性测试</h2>
+<p>测试时间：{now.strftime('%Y-%m-%d %H:%M:%S')} ({ctx.timezone})</p>
+<p>这是一条测试消息，用于验证邮件渠道是否可达。</p>
 </body>
 </html>"""
         html_path.write_text(html_content, encoding="utf-8")
         return str(html_path)
     except Exception as e:
-        print(f"[娴嬭瘯閫氱煡] 鍒涘缓娴嬭瘯 HTML 澶辫触: {e}")
+        print(f"[测试通知] 创建测试 HTML 失败: {e}")
         return None
 
 
 def run_test_notification(config: Dict) -> bool:
-    """鍙戦€佹祴璇曢€氱煡鍒板凡閰嶇疆娓犻亾"""
+    """发送测试通知到已配置渠道"""
     from trendradar.notification import NotificationDispatcher
 
     ctx = AppContext(config)
@@ -83,7 +83,7 @@ def run_test_notification(config: Dict) -> bool:
             ]
         )
         if not has_notification:
-            print("鏈娴嬪埌鍙敤閫氱煡娓犻亾锛岃鍏堝湪 config.yaml 鎴栫幆澧冨彉閲忎腑閰嶇疆銆?)
+            print("未检测到可用通知渠道，请先在 config.yaml 或环境变量中配置。")
             return False
 
         test_config = copy.deepcopy(config)
@@ -104,7 +104,7 @@ def run_test_notification(config: Dict) -> bool:
 
         proxy_url = test_config.get("DEFAULT_PROXY", "") if test_config.get("USE_PROXY") else None
         if proxy_url:
-            print("[娴嬭瘯閫氱煡] 妫€娴嬪埌浠ｇ悊閰嶇疆锛屽皢浣跨敤浠ｇ悊鍙戦€?)
+            print("[测试通知] 检测到代理配置，将使用代理发送")
 
         dispatcher = NotificationDispatcher(
             config=test_config,
@@ -117,19 +117,19 @@ def run_test_notification(config: Dict) -> bool:
         html_file_path = _create_test_html_file(ctx)
 
         print("=" * 60)
-        print("閫氱煡杩為€氭€ф祴璇?)
+        print("通知连通性测试")
         print("=" * 60)
 
         results = dispatcher.dispatch_all(
             report_data=report_data,
-            report_type="AI 绉戞妧鏃ユ姤閫氱煡杩為€氭€ф祴璇?,
+            report_type="通知连通性测试",
             proxy_url=proxy_url,
             mode="daily",
             html_file_path=html_file_path,
         )
 
         if not results:
-            print("娌℃湁鍙祴璇曠殑鏈夋晥閫氱煡娓犻亾锛堝彲鑳介厤缃笉瀹屾暣锛夈€?)
+            print("没有可测试的有效通知渠道（可能配置不完整）。")
             return False
 
         print("-" * 60)
@@ -137,12 +137,12 @@ def run_test_notification(config: Dict) -> bool:
         for channel, ok in results.items():
             if ok:
                 success_count += 1
-                print(f"鉁?{channel}: 娴嬭瘯鎴愬姛")
+                print(f"✅ {channel}: 测试成功")
             else:
-                print(f"鉂?{channel}: 娴嬭瘯澶辫触")
+                print(f"❌ {channel}: 测试失败")
 
         print("-" * 60)
-        print(f"娴嬭瘯缁撴灉: {success_count}/{len(results)} 涓笭閬撴垚鍔?)
+        print(f"测试结果: {success_count}/{len(results)} 个渠道成功")
         return success_count > 0
     finally:
         ctx.cleanup()
