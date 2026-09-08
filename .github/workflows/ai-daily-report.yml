@@ -29,7 +29,7 @@ jobs:
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
     steps:
-      - name: Check for an earlier successful scheduled report
+      - name: Check for an earlier successful report
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,15 +44,19 @@ jobs:
 
           today="$(date -u +%Y-%m-%d)"
           successful_runs="$(gh api \
-            "repos/$GH_REPO/actions/workflows/ai-daily-report.yml/runs?event=schedule&status=success&per_page=30" \
+            "repos/$GH_REPO/actions/workflows/ai-daily-report.yml/runs?status=success&per_page=30" \
             --jq ".workflow_runs[] | select(.id != $CURRENT_RUN_ID and (.created_at | startswith(\"$today\"))) | .id")"
 
-          if [ -n "$successful_runs" ]; then
-            echo "A scheduled report already succeeded today; skipping this retry."
-            echo "should-run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "should-run=true" >> "$GITHUB_OUTPUT"
-          fi
+          for run_id in $successful_runs; do
+            artifact_count="$(gh api "repos/$GH_REPO/actions/runs/$run_id/artifacts" --jq '.total_count')"
+            if [ "$artifact_count" -gt 0 ]; then
+              echo "A report already succeeded today; skipping this retry."
+              echo "should-run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "should-run=true" >> "$GITHUB_OUTPUT"
 
   daily-report:
     needs: schedule-guard
