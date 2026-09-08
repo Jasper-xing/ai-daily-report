@@ -3,8 +3,10 @@ name: AI Daily Report to Feishu
 on:
   schedule:
     # GitHub Actions uses UTC. 00:50 UTC is 08:50 in Asia/Shanghai.
-    # The job starts early so AI generation can finish around 09:00.
+    # Later entries retry if GitHub drops or fails the primary schedule.
     - cron: "50 0 * * *"
+    - cron: "20 1 * * *"
+    - cron: "50 1 * * *"
   workflow_dispatch:
     inputs:
       test_notification:
@@ -19,9 +21,42 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  schedule-guard:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+    steps:
+      - name: Check for an earlier successful scheduled report
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "should-run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          today="$(date -u +%Y-%m-%d)"
+          successful_runs="$(gh api \
+            "repos/$GH_REPO/actions/workflows/ai-daily-report.yml/runs?event=schedule&status=success&per_page=30" \
+            --jq ".workflow_runs[] | select(.id != $CURRENT_RUN_ID and (.created_at | startswith(\"$today\"))) | .id")"
+
+          if [ -n "$successful_runs" ]; then
+            echo "A scheduled report already succeeded today; skipping this retry."
+            echo "should-run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should-run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   daily-report:
+    needs: schedule-guard
+    if: ${{ needs.schedule-guard.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
