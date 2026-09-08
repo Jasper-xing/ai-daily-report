@@ -158,7 +158,7 @@ report:
 # 4.5 筛选策略
 # ===============================================================
 filter:
-  method: "ai"                          # 使用自然语言兴趣描述筛选 AI 新闻
+  method: "keyword"                     # 使用稳定的关键词规则筛选 AI 新闻
                                        # keyword = 关键词匹配，不调用 AI，不消耗 token，但规则固定
                                        #           词组定义在 config/frequency_words.txt
                                        # ai = AI 智能分类，更灵活但每次运行消耗 token
