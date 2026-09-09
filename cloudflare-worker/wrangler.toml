@@ -1,0 +1,6 @@
+name = "ai-daily-report-scheduler"
+main = "src/index.js"
+compatibility_date = "2026-09-09"
+
+[triggers]
+crons = ["50 0 * * *", "20 1 * * *", "50 1 * * *"]
